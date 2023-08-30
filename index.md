@@ -5,11 +5,14 @@ layout: default
 # Hi, I'm Reagan
 I'm a recent graduate from Brigham Young University, holding a Bachelor of Science
 in Applied Mathematics with a concentration in mechanical engineering.
+During my time at BYU, I did research in the 3-body problem.
+
 My passion lies in the realm of both software and hardware, particularly in the
 pursuit of projects centered around machine learning and computational applications
 that have a positive impact on the world.
 I thrive on problem-solving, relishing the challenge of fixing anything that's broken –
 be it mechanical systems or lines of code.
+
 Beyond my technical pursuits, I enjoy indulging in hobbies such as watching movies,
 reading, biking, playing chess, and savoring good food.
 Welcome to my portfolio, where I showcase my journey and accomplishments.
@@ -19,6 +22,7 @@ Welcome to my portfolio, where I showcase my journey and accomplishments.
 - [Project 2](/projects/project2)
 - [Project 3](/projects/priject3)
 
+<!-- 
 Text can be **bold**, _italic_, or ~~strikethrough~~.
 
 [Link to another page](./another-page.html).
@@ -138,3 +142,4 @@ Long, single-line code blocks should not wrap. They should horizontally scroll i
 ```
 The final element.
 ```
+ -->
