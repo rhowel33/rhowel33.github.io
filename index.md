@@ -1,8 +1,9 @@
 ---
 layout: default
 ---
-
-# Hi, I'm Reagan
+<div class="center-text">
+# hi, i'm Reagan Howell
+</div>
 I'm a recent graduate from Brigham Young University, holding a Bachelor of Science
 in Applied Mathematics with a concentration in mechanical engineering.
 During my time at BYU, I did research in the 3-body problem.
@@ -17,12 +18,8 @@ Beyond my technical pursuits, I enjoy indulging in hobbies such as watching movi
 reading, biking, playing chess, and savoring good food.
 Welcome to my portfolio, where I showcase my journey and accomplishments.
 
-## Projects
-- [Project 1](/projects/project1)
-- [Project 2](/projects/project2)
-- [Project 3](/projects/priject3)
 
-<!-- 
+<!--
 Text can be **bold**, _italic_, or ~~strikethrough~~.
 
 [Link to another page](./another-page.html).
