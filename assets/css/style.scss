@@ -2,3 +2,32 @@
 ---
 
 @import "jekyll-theme-tactile";
+
+h1.title {
+  text-align: center;
+}
+
+
+.gif-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.gif-row img {
+  width: 250px;
+  height: 250px;
+}
+.center-text {
+  text-align: center;
+  /* You can add additional styles here */
+}
+.horizontal-list {
+  list-style: none; /* Remove list bullets */
+  display: flex; /* Use flexbox to create a horizontal layout */
+  padding: 0; /* Remove padding for better alignment */
+  text-align: center;
+}
+
+.horizontal-list li {
+  margin-right: 20px; /* Adjust the spacing between list items as needed */
+}
