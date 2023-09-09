@@ -22,7 +22,7 @@ reading, biking, playing chess, and cooking good food.
 ## Projects
 <div class="gif-row">
   <!-- <img src="/assets/images/hiphop.gif" alt="GIF 2"> -->
-  <img src="/assets/images/figure_8.gif" alt="GIF 3">
+  <img src="/assets/images/figure8.gif" alt="GIF 3">
   <img src="/assets/images/Chess.png" alt="GIF 1">
 </div>
 
