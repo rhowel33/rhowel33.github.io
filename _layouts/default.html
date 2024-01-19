@@ -24,14 +24,11 @@
             </div>
           <!-- <h2>{{ page.description | default: site.description | default: site.githuzb.project_tagline }}</h2> -->
         </header>
-
-            <div class="horizontal-list">
-              <li><a href="/resume/resume.pdf">Resume</a></li>
-              <li><a href="https://github.com/rhowel33">GitHub</a></li>
-              <li><a href="https://letterboxd.com/ironisblack/">Letterboxd</a></li>
-              <li><a href="https://www.goodreads.com/user/show/132764961-reagan">Goodreads</a></li>
-              <li><a href="https://www.chess.com/member/rhowel33">Chess.com</a><?li>
-              <!-- Add more list items for other links here -->
+          <div class="horizontal-list">
+            <li><a href="/projects/projects.html">Projects</a></li>
+            <li><a href="/resume/resume.pdf">Resume</a></li>
+            <li><a href="https://github.com/rhowel33">GitHub</a></li>
+          
           </div>
         <hr>
         <section id="main_content">
@@ -39,6 +36,15 @@
         </section>
 
         <footer>
+          Personal Links
+          <div class="horizontal-list">
+            <li><a href="/resume/resume.pdf">Resume</a></li>
+            <li><a href="https://github.com/rhowel33">GitHub</a></li>
+            <li><a href="https://letterboxd.com/ironisblack/">Letterboxd</a></li>
+            <li><a href="https://www.goodreads.com/user/show/132764961-reagan">Goodreads</a></li>
+            <li><a href="https://www.chess.com/member/rhowel33">Chess.com</a><?li>
+            <!-- Add more list items for other links here -->
+            </div>
         {% if site.github.is_project_page %}
           {{ site.title | default: site.github.repository_name }} is maintained by <a href="{{ site.github.owner_url }}">{{ site.github.owner_name }}</a><br>
         {% endif %}

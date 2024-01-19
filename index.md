@@ -16,7 +16,7 @@ My passion lies in the realm of both software and hardware, particularly in the
 pursuit of projects centered around machine learning and computational applications
 that have a positive impact on the world.
 I thrive on problem-solving, relishing the challenge of fixing anything that's broken –
-be it mechanical systems or lines of code. I host my own server for media, back-ups and intense coding programs.
+be it mechanical systems or code. I host my own server for media, back-ups and intense coding programs.
 
 
 ## Projects
@@ -25,7 +25,7 @@ Below are some of animations of my work, including 3 body problem, The Figure 8 
 and the Hiphop Orbit.
 There is also a wavelet transform of time series data representing the river water quality
 from across the United States.
-There is also a picture of my chess at home, handdrawn set.
+There is also a picture of my chess at home, hand drawn set.
 <div class="gif-row">
   <!-- <img src="/assets/images/hiphop.gif" alt="GIF 2"> -->
   <img src="/assets/images/figure8.gif" alt="GIF 3">
@@ -44,4 +44,4 @@ There is also a picture of my chess at home, handdrawn set.
 
 Beyond my technical pursuits, I enjoy indulging in hobbies such as watching movies,
 reading, biking, playing chess, and cooking good food. *Ratatouille*, being a blend of good
-animation, cooking, and a great story telling, is one of my all time favorites.
+animation, cooking, and a great story telling, is one of my all-time favorites.
