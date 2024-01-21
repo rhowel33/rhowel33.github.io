@@ -16,9 +16,9 @@ It was a personal Audible, a personaudible, if you will.
 <img src="/assets/images/abs.png" alt="GIF 3" width=200px>
 </div>
 
-I thought, I have an extra RaspberryPi 4b lying arround, I can set Audiobookshelf on it and be done in no time.
+I thought, I have an extra Raspberry Pi 4b lying arround, I can set Audiobookshelf on it and be done in no time.
 
-I set it up in docker container running on my RaspberryPi 4b.
+I set it up in docker container running on my Raspberry Pi 4b.
 It worked well enough for one or two people listening to books at a time, but it became clear that it needed a bit more hardware power to get it to work for my family.
 I found a cheap old desktop computer that I could repurpose into a Ubuntu server where I could host my Library.
 

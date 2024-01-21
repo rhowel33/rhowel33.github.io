@@ -37,11 +37,13 @@
 <!-- end custom head snippets -->
 <header class="site-header">
   <nav class="nav">
-    <ul>
-      <li><a href="/">Reagan Howell</a></li>
-      <li><a href="/resume/resume.pdf" target="_blank">Resume</a></li> <!-- Add target="_blank" here -->
-      <li><a href="_site/projects/projects.html">Projects</a></li> <!-- Add this line -->
-    </ul>
+    <div style="text-align: center;">
+      <div class="horizontal-list">
+        <li><a href="/">Reagan Howell</a></li>
+        <li><a href="/resume/resume.pdf" target="_blank">Resume</a></li> <!-- Add target="_blank" here -->
+        <li><a href="_site/projects/projects.html">Projects</a></li> <!-- Add this line -->
+      </div>
+    </div>
   </nav>
 </header>
 
@@ -50,6 +52,11 @@
   <body>
     <div id="container">
       <div class="inner">
+        <div style="text-align: center;">
+        <font size="8">  
+          Personal Projects
+        </font> 
+        </div>
         <header>
           Audiobooks Home
         </header>
@@ -68,10 +75,10 @@
           
         </p>
         <p>
-          I thought, I have an extra RaspberryPi 4b lying arround, I can set Audiobookshelf on it and be done in no time.
+          I thought, I have an extra Raspberry Pi 4b lying arround, I can set Audiobookshelf on it and be done in no time.
         </p>
         <p>
-          I set it up in docker container running on my RaspberryPi 4b.
+          I set it up in docker container running on my Raspberry Pi 4b.
           It worked well enough for one or two people listening to books at a time, but it became clear that it needed a bit more hardware power to get it to work for my family.
           I found a cheap old desktop computer that I could repurpose into a Ubuntu server where I could host my Library.
         </p>
