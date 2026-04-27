@@ -53,7 +53,6 @@
       <a href="/" class="site-title">Reagan Howell</a>
       <nav class="header-nav">
         <a href="/projects" class:active={$page.url.pathname.startsWith('/projects')}>Projects</a>
-        <a href="/simulation" class:active={$page.url.pathname.startsWith('/simulation')}>Simulation</a>
         <a href="/galaxy" class:active={$page.url.pathname.startsWith('/galaxy')}>Galaxy</a>
         <a href="/resume/resume.pdf" target="_blank" rel="noopener noreferrer">Resume</a>
         <a href="https://github.com/rhowel33" target="_blank" rel="noopener noreferrer">GitHub</a>
