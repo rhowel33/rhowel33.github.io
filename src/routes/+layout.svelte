@@ -72,7 +72,7 @@
         <a href="/resume/resume.pdf" target="_blank" rel="noopener noreferrer">Resume</a>
         <a href="https://github.com/rhowel33" target="_blank" rel="noopener noreferrer">GitHub</a>
         <a href="https://letterboxd.com/ironisblack/" target="_blank" rel="noopener noreferrer">Letterboxd</a>
-        <a href="https://www.goodreads.com/user/show/132764961-reagan" target="_blank" rel="noopener noreferrer">Goodreads</a>
+        <a href="https://shelflife.tokyodelights.com/user/cmmwbn5v1000047pam7j9kc9u" target="_blank" rel="noopener noreferrer">Shelf Life</a>
         <a href="https://www.chess.com/member/rhowel33" target="_blank" rel="noopener noreferrer">Chess.com</a>
       </nav>
       <p class="footer-credit">Built with SvelteKit · Hosted on GitHub Pages</p>

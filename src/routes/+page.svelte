@@ -15,16 +15,17 @@
   <h2 class="section-heading">About</h2>
   <p>
     I'm a graduate from Brigham Young University with a Bachelor of Science in Applied Mathematics,
-    concentration in mechanical engineering. During my time at BYU I did research on the N-body
-    problem — specifically studying equilibrium configurations and their stabilities, such as the
-    figure-8 configuration. I also worked on a team investigating possible locations of earthquake
-    epicenters based on historical records of earthquakes and tsunamis before the seismograph.
+    concentration in mechanical engineering. Today I'm a software engineer and co-founder at
+    OKhuman, where I build across Swift, C++, and Python.
   </p>
   <p>
     My passion lies in both software and hardware, particularly projects centered around machine
     learning and computational applications that make a positive impact. I thrive on problem-solving
-    and relish fixing anything that's broken — mechanical systems or code alike. I host my own server
-    for media, backups, and intensive computing programs.
+    and relish fixing anything that's broken — mechanical systems or code alike. I host my own
+    server for media, backups, and intensive computing — including
+    <a href="https://shelflife.tokyodelights.com" target="_blank" rel="noopener noreferrer">Shelf Life</a>,
+    a Goodreads-style app I built to help people actually finish the books on their shelves and in
+    their book clubs.
   </p>
 </section>
 
