@@ -1,15 +1,60 @@
 <script>
   import { page } from '$app/stores';
+  import NBodyBackground from '$lib/NBodyBackground.svelte';
   let { children } = $props();
+
+  // Home-page only: hide all layout content (header / main / footer) for 3 s
+  // so the simulation gets a clean stage to start, then fade in. Any click
+  // or keypress reveals the content immediately. Other routes always render
+  // visibly.
+  let revealed = $state(false);
+  let isHome   = $derived($page.url.pathname === '/');
+  let timer    = null;
+
+  function revealNow() {
+    revealed = true;
+    cleanup();
+  }
+  function cleanup() {
+    if (timer) { clearTimeout(timer); timer = null; }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('click',   revealNow);
+      window.removeEventListener('keydown', revealNow);
+    }
+  }
+
+  $effect(() => {
+    cleanup();
+    // Outside `/` — show content immediately, no fade.
+    if (!isHome) {
+      revealed = true;
+      return;
+    }
+    // Reduced-motion users: skip the staged reveal too.
+    const reduced = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    if (reduced) {
+      revealed = true;
+      return;
+    }
+    revealed = false;
+    timer = setTimeout(revealNow, 3000);
+    window.addEventListener('click',   revealNow);
+    window.addEventListener('keydown', revealNow);
+    return cleanup;
+  });
 </script>
 
-<div class="site-wrapper">
+<NBodyBackground />
+
+<div class="site-wrapper" class:home={isHome} class:revealed>
   <header class="site-header">
     <div class="header-inner">
       <a href="/" class="site-title">Reagan Howell</a>
       <nav class="header-nav">
         <a href="/projects" class:active={$page.url.pathname.startsWith('/projects')}>Projects</a>
         <a href="/simulation" class:active={$page.url.pathname.startsWith('/simulation')}>Simulation</a>
+        <a href="/galaxy" class:active={$page.url.pathname.startsWith('/galaxy')}>Galaxy</a>
         <a href="/resume/resume.pdf" target="_blank" rel="noopener noreferrer">Resume</a>
         <a href="https://github.com/rhowel33" target="_blank" rel="noopener noreferrer">GitHub</a>
       </nav>
@@ -77,6 +122,15 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    transition: opacity 1.2s ease-out;
+  }
+
+  /* Staged reveal on the home page only.
+     SSR/static HTML for `/` ships with .home but not .revealed, so the
+     viewer's first paint is the simulation alone — no flash of text. */
+  .site-wrapper.home:not(.revealed) {
+    opacity: 0;
+    pointer-events: none;
   }
 
   .main-content {

@@ -28,33 +28,6 @@
   </p>
 </section>
 
-<section class="gallery-section">
-  <h2 class="section-heading">Research Snapshots</h2>
-  <p class="gallery-intro">
-    Animations from my N-body research: the figure-8 orbit, the hip-hop orbit, a wavelet transform
-    of US river water quality data, and my hand-drawn chess set.
-  </p>
-
-  <div class="gif-grid">
-    <div class="gif-card">
-      <img src="/images/figure8.gif" alt="Figure-8 three-body orbit animation" loading="lazy" />
-      <span class="gif-caption">Figure-8 Orbit</span>
-    </div>
-    <div class="gif-card">
-      <img src="/images/Chess.png" alt="Hand-drawn chess set" loading="lazy" />
-      <span class="gif-caption">Hand-drawn Chess Set</span>
-    </div>
-    <div class="gif-card">
-      <img src="/images/stream.png" alt="Wavelet transform of river water quality data" loading="lazy" />
-      <span class="gif-caption">Wavelet Transform · Water Quality</span>
-    </div>
-    <div class="gif-card">
-      <img src="/images/hiphop.gif" alt="Hip-hop three-body orbit animation" loading="lazy" />
-      <span class="gif-caption">Hip-Hop Orbit</span>
-    </div>
-  </div>
-</section>
-
 <section class="personal-section">
   <h2 class="section-heading">Personal</h2>
   <p>
@@ -113,52 +86,8 @@
   }
 
   .about-section,
-  .gallery-section,
   .personal-section {
     margin-bottom: 3rem;
-  }
-
-  /* ── Gallery grid ── */
-  .gallery-intro {
-    color: #9090b8;
-    font-size: 0.92rem;
-    margin-bottom: 1.25rem;
-  }
-
-  .gif-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-  }
-
-  .gif-card {
-    background: #16161e;
-    border: 1px solid #2a2a38;
-    border-radius: 10px;
-    overflow: hidden;
-    transition: transform 0.2s ease, border-color 0.2s ease;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .gif-card:hover {
-    transform: translateY(-3px);
-    border-color: #d5000d;
-  }
-
-  .gif-card img {
-    width: 100%;
-    height: 200px;
-    object-fit: cover;
-    display: block;
-  }
-
-  .gif-caption {
-    padding: 0.5rem 0.75rem;
-    font-size: 0.78rem;
-    color: #7070a0;
-    font-weight: 500;
-    letter-spacing: 0.02em;
   }
 
   /* ── Interest pills ── */
@@ -186,14 +115,4 @@
     border-color: #d5000d;
   }
 
-  /* ── Responsive ── */
-  @media (max-width: 520px) {
-    .gif-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .gif-card img {
-      height: 180px;
-    }
-  }
 </style>
