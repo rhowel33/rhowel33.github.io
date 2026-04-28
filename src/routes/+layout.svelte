@@ -3,51 +3,12 @@
   import NBodyBackground from '$lib/NBodyBackground.svelte';
   let { children } = $props();
 
-  // Home-page only: hide all layout content (header / main / footer) for 3 s
-  // so the simulation gets a clean stage to start, then fade in. Any click
-  // or keypress reveals the content immediately. Other routes always render
-  // visibly.
-  let revealed = $state(false);
-  let isHome   = $derived($page.url.pathname === '/');
-  let timer    = null;
-
-  function revealNow() {
-    revealed = true;
-    cleanup();
-  }
-  function cleanup() {
-    if (timer) { clearTimeout(timer); timer = null; }
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('click',   revealNow);
-      window.removeEventListener('keydown', revealNow);
-    }
-  }
-
-  $effect(() => {
-    cleanup();
-    // Outside `/` — show content immediately, no fade.
-    if (!isHome) {
-      revealed = true;
-      return;
-    }
-    // Reduced-motion users: skip the staged reveal too.
-    const reduced = typeof window !== 'undefined'
-      && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-    if (reduced) {
-      revealed = true;
-      return;
-    }
-    revealed = false;
-    timer = setTimeout(revealNow, 3000);
-    window.addEventListener('click',   revealNow);
-    window.addEventListener('keydown', revealNow);
-    return cleanup;
-  });
+  let isGalaxy = $derived($page.url.pathname.startsWith('/galaxy'));
 </script>
 
-<NBodyBackground />
+<NBodyBackground interactive={isGalaxy} />
 
-<div class="site-wrapper" class:home={isHome} class:revealed>
+<div class="site-wrapper">
   <header class="site-header">
     <div class="header-inner">
       <a href="/" class="site-title">Reagan Howell</a>
@@ -121,15 +82,6 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    transition: opacity 1.2s ease-out;
-  }
-
-  /* Staged reveal on the home page only.
-     SSR/static HTML for `/` ships with .home but not .revealed, so the
-     viewer's first paint is the simulation alone — no flash of text. */
-  .site-wrapper.home:not(.revealed) {
-    opacity: 0;
-    pointer-events: none;
   }
 
   .main-content {
@@ -138,6 +90,23 @@
     max-width: 740px;
     margin: 0 auto;
     padding: 2.5rem 1.5rem;
+    /* Sit above the n-body canvas (z:0) so text and links on every page
+       paint and receive clicks normally. The element itself is transparent
+       to pointer events so empty padding lets clicks fall through to the
+       canvas behind; direct children opt back in for normal interactivity. */
+    position: relative;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .main-content > * {
+    pointer-events: auto;
+  }
+  /* The simulation canvas is position:fixed at z:0, so the otherwise-static
+     footer would paint underneath it. Lifting it into a stacking context
+     above the canvas keeps it visible and clickable on every page. */
+  .site-footer {
+    position: relative;
+    z-index: 1;
   }
 
   /* ── Header ── */

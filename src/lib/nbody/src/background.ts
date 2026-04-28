@@ -8,7 +8,7 @@
 //   if (!ctrl) {  /* WebGPU not available — fall back to static bg */  }
 //   // later: ctrl.destroy()
 
-import { Simulation } from './simulation.ts';
+import { Simulation, type SinkInit } from './simulation.ts';
 import { createRenderer, type Renderer } from './renderer.ts';
 import { generateSingleGalaxy } from './initial_conditions.ts';
 
@@ -57,6 +57,10 @@ export interface BackgroundController {
   resume(): void;
   /** Live camera state. Mutate fields directly; changes take effect next frame. */
   state: BackgroundState;
+  /** Toggle click-to-place user body. Off cancels any in-progress drag and
+   *  clears the existing user body so it doesn't keep perturbing the sim
+   *  while the visitor is on a non-interactive route. */
+  setInteractive(active: boolean): void;
 }
 
 const DEFAULTS = {
@@ -100,11 +104,22 @@ export async function startNBodyBackground(
     seed:           cfg.seed,
   });
 
+  // Reserve one extra sink slot for the user-placed body. Parked far away with
+  // mass=0 until the user clicks; activated via sim.setUserBody().
+  const PARKED_USER_BODY: SinkInit = {
+    x: 1e6, y: 1e6, z: 1e6, vx: 0, vy: 0, vz: 0, mass: 0,
+  };
+  const allSinks: SinkInit[] = [...ic.sinks, PARKED_USER_BODY];
+
+  // 2× central sink mass (or a sane default if the IC has no sinks at all).
+  const centralSinkMass = ic.sinks.length > 0 ? ic.sinks[0].mass : 0.02;
+  const userBodyMass    = 2 * centralSinkMass;
+
   // ---- Simulation ---------------------------------------------------------
   const sim = new Simulation(
     device,
     ic.pos.length / 3,
-    ic.sinks.length,
+    allSinks.length,
     {
       dt:            0.01,
       softening:     0.05,
@@ -117,7 +132,7 @@ export async function startNBodyBackground(
       halos:         ic.halos,
     },
   );
-  sim.setState(ic.pos, ic.vel, ic.mass, ic.sinks);
+  sim.setState(ic.pos, ic.vel, ic.mass, allSinks);
 
   // ---- Renderer -----------------------------------------------------------
   const renderer: Renderer = createRenderer(
@@ -157,40 +172,181 @@ export async function startNBodyBackground(
   // right, which means our camera target slides LEFT in world coords.
   let panning = false;
   let lastPx = 0, lastPy = 0;
-  const onPointerDown = (e: PointerEvent): void => {
-    if (e.button !== 1) return;
-    e.preventDefault();
-    panning = true;
-    lastPx = e.clientX;
-    lastPy = e.clientY;
-    canvas.setPointerCapture(e.pointerId);
-  };
-  const onPointerMove = (e: PointerEvent): void => {
-    if (!panning) return;
-    const dx = e.clientX - lastPx;
-    const dy = e.clientY - lastPy;
-    lastPx = e.clientX;
-    lastPy = e.clientY;
-    // Camera basis: right = (cosA, 0, -sinA);  up = (-sinA·sinE, cosE, -cosA·sinE)
+
+  // ---- Left-click: place user body ---------------------------------------
+  // Click anywhere on the canvas to drop a heavy body at the cursor's world
+  // position; release with cursor moving to throw it. Only one user body
+  // exists at a time — clicking again replaces it. Mass = 2× central sink.
+  const FOVY = Math.PI / 3;
+  const VEL_WINDOW_MS = 80;  // sample window for release-velocity smoothing
+
+  // Cast a ray from the camera through the cursor pixel and intersect it
+  // with the galaxy disk plane (z=0). Falls back to the screen-aligned
+  // plane through the camera target when the ray is near-parallel to the
+  // disk (e.g. extreme edge-on views).
+  const cursorToWorld = (clientX: number, clientY: number):
+    [number, number, number] => {
+    const rect = canvas.getBoundingClientRect();
+    const w = Math.max(1, rect.width);
+    const h = Math.max(1, rect.height);
+    const nx =  ((clientX - rect.left) / w) * 2 - 1;
+    const ny = -(((clientY - rect.top)  / h) * 2 - 1);
+
     const cosE = Math.cos(state.elevation);
     const sinE = Math.sin(state.elevation);
     const sinA = Math.sin(state.azimuth);
     const cosA = Math.cos(state.azimuth);
-    const rX =  cosA, rY = 0,    rZ = -sinA;
-    const uX = -sinA * sinE, uY = cosE, uZ = -cosA * sinE;
-    // Pan scale: 1 px ≈ distance / canvas-height world units, so panning
-    // feels speed-correct at any zoom.
-    const scale = state.distance / Math.max(1, canvas.clientHeight);
-    state.target[0] += (-dx * rX + dy * uX) * scale;
-    state.target[1] += (-dx * rY + dy * uY) * scale;
-    state.target[2] += (-dx * rZ + dy * uZ) * scale;
+
+    const eyeX = state.target[0] + state.distance * cosE * sinA;
+    const eyeY = state.target[1] + state.distance * sinE;
+    const eyeZ = state.target[2] + state.distance * cosE * cosA;
+
+    // Forward = (target − eye) / |.|
+    const fx = -cosE * sinA, fy = -sinE, fz = -cosE * cosA;
+    // right = forward × up, up = (0,1,0)
+    let sx = fy * 0 - fz * 1;
+    let sy = fz * 0 - fx * 0;
+    let sz = fx * 1 - fy * 0;
+    const sl = Math.hypot(sx, sy, sz) || 1;
+    sx /= sl; sy /= sl; sz /= sl;
+    // trueUp = right × forward
+    const ux = sy * fz - sz * fy;
+    const uy = sz * fx - sx * fz;
+    const uz = sx * fy - sy * fx;
+
+    const halfH = Math.tan(FOVY / 2);
+    const halfW = halfH * (w / h);
+
+    let dx = fx + nx * halfW * sx + ny * halfH * ux;
+    let dy = fy + nx * halfW * sy + ny * halfH * uy;
+    let dz = fz + nx * halfW * sz + ny * halfH * uz;
+    const dl = Math.hypot(dx, dy, dz) || 1;
+    dx /= dl; dy /= dl; dz /= dl;
+
+    if (Math.abs(dz) > 1e-3) {
+      const t = -eyeZ / dz;
+      if (t > 0.01 && t < 200) {
+        return [eyeX + t * dx, eyeY + t * dy, 0];
+      }
+    }
+    const t = state.distance;
+    return [eyeX + t * dx, eyeY + t * dy, eyeZ + t * dz];
+  };
+
+  let placing = false;
+  let interactive = false;
+  let prevAutoRotate = 0;
+  type Sample = { t: number; x: number; y: number; z: number };
+  let placeHistory: Sample[] = [];
+
+  const trimHistory = (now: number): void => {
+    const cutoff = now - VEL_WINDOW_MS;
+    while (placeHistory.length > 1 && placeHistory[0].t < cutoff) {
+      placeHistory.shift();
+    }
+  };
+
+  const onPointerDown = (e: PointerEvent): void => {
+    if (e.button === 1) {
+      e.preventDefault();
+      panning = true;
+      lastPx = e.clientX;
+      lastPy = e.clientY;
+      canvas.setPointerCapture(e.pointerId);
+      return;
+    }
+    if (e.button === 0) {
+      if (!interactive) return;
+      // Don't hijack clicks on links / buttons sitting above the canvas.
+      const target = e.target;
+      if (target instanceof Element && target !== canvas) return;
+      e.preventDefault();
+      placing = true;
+      // Freeze auto-rotate so cursor world-positions sampled across the drag
+      // share a consistent camera frame; resumes on release.
+      prevAutoRotate = state.autoRotateSpeed;
+      state.autoRotateSpeed = 0;
+      const [wx, wy, wz] = cursorToWorld(e.clientX, e.clientY);
+      placeHistory = [{ t: performance.now(), x: wx, y: wy, z: wz }];
+      canvas.setPointerCapture(e.pointerId);
+    }
+  };
+  const onPointerMove = (e: PointerEvent): void => {
+    if (panning) {
+      const dx = e.clientX - lastPx;
+      const dy = e.clientY - lastPy;
+      lastPx = e.clientX;
+      lastPy = e.clientY;
+      // Camera basis: right = (cosA, 0, -sinA);  up = (-sinA·sinE, cosE, -cosA·sinE)
+      const cosE = Math.cos(state.elevation);
+      const sinE = Math.sin(state.elevation);
+      const sinA = Math.sin(state.azimuth);
+      const cosA = Math.cos(state.azimuth);
+      const rX =  cosA, rY = 0,    rZ = -sinA;
+      const uX = -sinA * sinE, uY = cosE, uZ = -cosA * sinE;
+      // Pan scale: 1 px ≈ distance / canvas-height world units, so panning
+      // feels speed-correct at any zoom.
+      const scale = state.distance / Math.max(1, canvas.clientHeight);
+      state.target[0] += (-dx * rX + dy * uX) * scale;
+      state.target[1] += (-dx * rY + dy * uY) * scale;
+      state.target[2] += (-dx * rZ + dy * uZ) * scale;
+    }
+    if (placing) {
+      const now = performance.now();
+      const [wx, wy, wz] = cursorToWorld(e.clientX, e.clientY);
+      placeHistory.push({ t: now, x: wx, y: wy, z: wz });
+      trimHistory(now);
+    }
   };
   const onPointerUp = (e: PointerEvent): void => {
-    if (e.button !== 1) return;
-    panning = false;
-    if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+    if (e.button === 1 && panning) {
+      panning = false;
+      if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+      return;
+    }
+    if (e.button === 0 && placing) {
+      placing = false;
+      const now = performance.now();
+      const [wx, wy, wz] = cursorToWorld(e.clientX, e.clientY);
+      placeHistory.push({ t: now, x: wx, y: wy, z: wz });
+      trimHistory(now);
+
+      // Velocity = (latest − oldest in trimmed window) / Δt. Falls back to
+      // zero for a pure click (no movement).
+      let vx = 0, vy = 0, vz = 0;
+      if (placeHistory.length >= 2) {
+        const first = placeHistory[0];
+        const last  = placeHistory[placeHistory.length - 1];
+        const dt = (last.t - first.t) / 1000;
+        if (dt > 0.005) {
+          vx = (last.x - first.x) / dt;
+          vy = (last.y - first.y) / dt;
+          vz = (last.z - first.z) / dt;
+        }
+      }
+
+      // Slot 0 is the central anchor; slot 1 is the replaceable user body.
+      // After a disruption event both are mass=0 — the next click reseeds
+      // slot 0 (with the original central-sink mass) and only later clicks
+      // start filling/replacing the user-body slot.
+      const centralAlive = sim.getSinkMass(0) > 0;
+      const slot = centralAlive ? 1 : 0;
+      const mass = centralAlive ? userBodyMass : centralSinkMass;
+      sim.setSink(slot, { x: wx, y: wy, z: wz, vx, vy, vz, mass });
+
+      state.autoRotateSpeed = prevAutoRotate;
+      placeHistory = [];
+      if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+    }
   };
-  const onPointerCancel = (): void => { panning = false; };
+  const onPointerCancel = (): void => {
+    panning = false;
+    if (placing) {
+      placing = false;
+      state.autoRotateSpeed = prevAutoRotate;
+      placeHistory = [];
+    }
+  };
   // Suppress browser default for middle-button auxclick (Linux paste, etc.).
   const onAuxClick = (e: MouseEvent): void => { if (e.button === 1) e.preventDefault(); };
 
@@ -284,6 +440,19 @@ export async function startNBodyBackground(
     pause:  () => { paused = true;  },
     resume: () => { paused = false; },
     state,
+    setInteractive: (active: boolean) => {
+      interactive = active;
+      if (!active) {
+        // Cancel any in-progress drag and clear the existing user body so the
+        // sim isn't being perturbed while the visitor is on another page.
+        if (placing) {
+          placing = false;
+          state.autoRotateSpeed = prevAutoRotate;
+          placeHistory = [];
+        }
+        sim.setUserBody(null);
+      }
+    },
   };
 }
 

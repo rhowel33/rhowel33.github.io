@@ -17,6 +17,10 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
 
+  // `interactive` enables click-to-place on the n-body canvas. Only the
+  // /galaxy route opts in; on other routes the canvas is a passive backdrop.
+  let { interactive = false } = $props();
+
   // Live camera state — same object the engine reads each frame.
   let camera = $state({
     azimuth:         0,
@@ -31,6 +35,15 @@
   let active  = $state(false);
   let supported = $state(false);
   let resizeHandler = null;
+
+  // Push the latest interactive flag into the running engine whenever it
+  // changes — covers SvelteKit client-side route changes without needing
+  // to remount the simulation.
+  $effect(() => {
+    if (cleanup && typeof cleanup.setInteractive === 'function') {
+      cleanup.setInteractive(interactive);
+    }
+  });
 
   function shouldRun() {
     if (typeof window === 'undefined') return false;
@@ -112,7 +125,10 @@
         galaxyType:   'spiral',
         seed:         7,
       });
-      if (cleanup) active = true;
+      if (cleanup) {
+        cleanup.setInteractive(interactive);
+        active = true;
+      }
       return;
     }
 
@@ -196,10 +212,10 @@
     inset: 0;
     width: 100vw;
     height: 100vh;
-    z-index: -1;
-    /* pointer-events auto so middle-click pan reaches the canvas in
-       margin/empty regions. Content (header, links, text) sits at higher
-       z-index and continues to receive clicks normally. */
+    /* z-index 0 puts the canvas in front of the body (so clicks land on it
+       directly) but below the header (z-index 100) and footer (z-index 1),
+       which paint on top with their solid backgrounds. */
+    z-index: 0;
     pointer-events: auto;
     opacity: 0;
     transition: opacity 700ms ease;

@@ -98,6 +98,11 @@ export class Simulation {
 
   private accelPrimed = false;
 
+  // Per-star mass at IC time. Used by runSinkCollisions() to convert sink
+  // masses back into a star count when a high-energy collision disrupts
+  // them. Stars are uniform-mass at setup, so a single scalar suffices.
+  private starMass = 0;
+
   constructor(device: GPUDevice, nStars: number, nSinks: number, params: SimParams) {
     this.device        = device;
     this.nStars        = nStars;
@@ -325,6 +330,54 @@ export class Simulation {
 
     // Seed the sink-state mirror from the init values directly.
     this.sinks = sinks.map((s) => ({ ...s }));
+
+    // Stars are uniform-mass at IC, so any live slot tells us m_per.
+    this.starMass = this.nStars > 0 ? starMass[0] : 0;
+  }
+
+  // Current mass of a sink slot. Background.ts uses this to decide where to
+  // place a click-spawned body — empty slot 0 means the central sink was
+  // disrupted and the next click should seed a new one.
+  getSinkMass(slot: number): number {
+    if (slot < 0 || slot >= this.nSinks) return 0;
+    return this.sinks[slot]?.mass ?? 0;
+  }
+
+  // Overwrite a sink slot's pos / vel / mass without re-uploading the entire
+  // star buffer. Pass null to "park" the slot far away with zero mass so it
+  // has no gravitational influence. Used for the click-to-place bodies and
+  // for parking after collisions.
+  setSink(slot: number, state: SinkInit | null): void {
+    if (slot < 0 || slot >= this.nSinks) return;
+    const i = this.nStars + slot;
+
+    const p = new Float32Array(4);
+    const v = new Float32Array(4);
+    if (state) {
+      p[0] = state.x;  p[1] = state.y;  p[2] = state.z;  p[3] = state.mass;
+      v[0] = state.vx; v[1] = state.vy; v[2] = state.vz; v[3] = 0;
+    } else {
+      // Park well outside any plausible camera frustum so the sink sprite is
+      // off-screen, mass=0 so accretion + gravity skip it.
+      p[0] = 1e6; p[1] = 1e6; p[2] = 1e6; p[3] = 0;
+    }
+
+    const offset = i * 4 * Float32Array.BYTES_PER_ELEMENT;
+    this.device.queue.writeBuffer(this.posBuf, offset, p);
+    this.device.queue.writeBuffer(this.velBuf, offset, v);
+
+    // Mirror update so the very next render frame draws the new state, even
+    // before stepMany's readback runs.
+    this.sinks[slot] = {
+      x: p[0], y: p[1], z: p[2],
+      vx: v[0], vy: v[1], vz: v[2],
+      mass: p[3],
+    };
+  }
+
+  /** @deprecated Use setSink(this.nSinks - 1, state) directly. */
+  setUserBody(state: SinkInit | null): void {
+    this.setSink(this.nSinks - 1, state);
   }
 
   private writeConstants(): void {
@@ -421,6 +474,9 @@ export class Simulation {
       if (mi <= 0) continue;
       for (let s = 0; s < this.nSinks; s++) {
         const j = this.nStars + s;
+        // Skip massless slots (e.g., parked user-body before placement) so they
+        // don't silently devour passing stars.
+        if (pos[4 * j + 3] <= 0) continue;
         const dx = pos[4 * i + 0] - pos[4 * j + 0];
         const dy = pos[4 * i + 1] - pos[4 * j + 1];
         const dz = pos[4 * i + 2] - pos[4 * j + 2];
@@ -448,6 +504,156 @@ export class Simulation {
     }
 
     return captured > 0;
+  }
+
+  // Pairwise sink-sink collision. Two sinks whose separation drops below
+  // 2·softening either merge (if the relative speed is below the local
+  // escape velocity, i.e. they're gravitationally bound at impact) or
+  // disrupt — in which case both sinks vanish and their entire combined
+  // mass is re-emitted as a momentum-conserving spray of resurrected
+  // stars. Visually this is the "burst" the user noticed during early
+  // testing; physically it converts the binding energy into an isotropic
+  // explosion and dumps every previously-accreted star back into the disk.
+  private runSinkCollisions(): boolean {
+    if (this.nSinks < 2 || this.starMass <= 0) return false;
+    const pos = this.hostPos;
+    const vel = this.hostVel;
+    const G   = this.params.G;
+    const COLLISION_DIST  = 2 * this.params.softening;
+    const COLLISION_DIST2 = COLLISION_DIST * COLLISION_DIST;
+    const mPer = this.starMass;
+
+    let dirty = false;
+
+    for (let a = 0; a < this.nSinks; a++) {
+      const ia = this.nStars + a;
+      let ma = pos[4 * ia + 3];
+      if (ma <= 0) continue;
+      for (let b = a + 1; b < this.nSinks; b++) {
+        const ib = this.nStars + b;
+        const mb = pos[4 * ib + 3];
+        if (mb <= 0) continue;
+
+        const dx = pos[4 * ia + 0] - pos[4 * ib + 0];
+        const dy = pos[4 * ia + 1] - pos[4 * ib + 1];
+        const dz = pos[4 * ia + 2] - pos[4 * ib + 2];
+        const r2 = dx * dx + dy * dy + dz * dz;
+        if (r2 >= COLLISION_DIST2) continue;
+        const r = Math.sqrt(Math.max(r2, 1e-12));
+
+        const dvx = vel[4 * ia + 0] - vel[4 * ib + 0];
+        const dvy = vel[4 * ia + 1] - vel[4 * ib + 1];
+        const dvz = vel[4 * ia + 2] - vel[4 * ib + 2];
+        const vRel2 = dvx * dvx + dvy * dvy + dvz * dvz;
+        const vEsc2 = (2 * G * (ma + mb)) / r;
+
+        const M  = ma + mb;
+        const cx = (ma * pos[4 * ia + 0] + mb * pos[4 * ib + 0]) / M;
+        const cy = (ma * pos[4 * ia + 1] + mb * pos[4 * ib + 1]) / M;
+        const cz = (ma * pos[4 * ia + 2] + mb * pos[4 * ib + 2]) / M;
+        const cvx = (ma * vel[4 * ia + 0] + mb * vel[4 * ib + 0]) / M;
+        const cvy = (ma * vel[4 * ia + 1] + mb * vel[4 * ib + 1]) / M;
+        const cvz = (ma * vel[4 * ia + 2] + mb * vel[4 * ib + 2]) / M;
+
+        if (vRel2 < vEsc2) {
+          // ── Merge: lower-index slot keeps the combined sink ──
+          pos[4 * ia + 0] = cx;
+          pos[4 * ia + 1] = cy;
+          pos[4 * ia + 2] = cz;
+          pos[4 * ia + 3] = M;
+          vel[4 * ia + 0] = cvx;
+          vel[4 * ia + 1] = cvy;
+          vel[4 * ia + 2] = cvz;
+          this.parkSlot(ib);
+          ma = M;
+        } else {
+          // ── Disrupt: emit a momentum-conserving star burst ──
+          const N = Math.min(Math.floor(M / mPer), this.nStars);
+          const slots: number[] = [];
+          for (let i = 0; i < this.nStars && slots.length < N; i++) {
+            if (pos[4 * i + 3] <= 0) slots.push(i);
+          }
+
+          if (slots.length === 0) {
+            // No dead slots to revive — fall back to merge so the event
+            // still resolves (a fresh disk has no consumed stars yet).
+            pos[4 * ia + 0] = cx;
+            pos[4 * ia + 1] = cy;
+            pos[4 * ia + 2] = cz;
+            pos[4 * ia + 3] = M;
+            vel[4 * ia + 0] = cvx;
+            vel[4 * ia + 1] = cvy;
+            vel[4 * ia + 2] = cvz;
+            this.parkSlot(ib);
+            ma = M;
+            dirty = true;
+            continue;
+          }
+
+          // Random isotropic directions, then de-bias the mean so the
+          // burst's net radial momentum is exactly zero — total momentum
+          // ends up at M·v_COM, matching the original two-sink momentum.
+          const K = slots.length;
+          const dirs = new Float32Array(K * 3);
+          let bx = 0, by = 0, bz = 0;
+          for (let k = 0; k < K; k++) {
+            const u   = Math.random() * 2 - 1;
+            const phi = Math.random() * Math.PI * 2;
+            const s   = Math.sqrt(Math.max(0, 1 - u * u));
+            const dxk = s * Math.cos(phi);
+            const dyk = s * Math.sin(phi);
+            const dzk = u;
+            dirs[3 * k + 0] = dxk;
+            dirs[3 * k + 1] = dyk;
+            dirs[3 * k + 2] = dzk;
+            bx += dxk; by += dyk; bz += dzk;
+          }
+          bx /= K; by /= K; bz /= K;
+
+          const burstSpeed = Math.sqrt(vRel2);
+          const SPREAD     = 0.04;
+
+          for (let k = 0; k < K; k++) {
+            const i = slots[k];
+            let ux = dirs[3 * k + 0] - bx;
+            let uy = dirs[3 * k + 1] - by;
+            let uz = dirs[3 * k + 2] - bz;
+            const dl = Math.hypot(ux, uy, uz) || 1;
+            ux /= dl; uy /= dl; uz /= dl;
+
+            const sp = SPREAD * Math.random();
+            pos[4 * i + 0] = cx + ux * sp;
+            pos[4 * i + 1] = cy + uy * sp;
+            pos[4 * i + 2] = cz + uz * sp;
+            pos[4 * i + 3] = mPer;
+
+            vel[4 * i + 0] = cvx + ux * burstSpeed;
+            vel[4 * i + 1] = cvy + uy * burstSpeed;
+            vel[4 * i + 2] = cvz + uz * burstSpeed;
+          }
+
+          this.parkSlot(ia);
+          this.parkSlot(ib);
+          ma = 0;
+        }
+
+        dirty = true;
+      }
+    }
+
+    return dirty;
+  }
+
+  private parkSlot(globalIdx: number): void {
+    const pos = this.hostPos;
+    const vel = this.hostVel;
+    pos[4 * globalIdx + 0] = 1e6;
+    pos[4 * globalIdx + 1] = 1e6;
+    pos[4 * globalIdx + 2] = 1e6;
+    pos[4 * globalIdx + 3] = 0;
+    vel[4 * globalIdx + 0] = 0;
+    vel[4 * globalIdx + 1] = 0;
+    vel[4 * globalIdx + 2] = 0;
   }
 
   private updateSinkMirror(): void {
@@ -478,7 +684,10 @@ export class Simulation {
     let stateDirty = false;
     if (this.needsPrestepReadback()) {
       await this.readbackPosVel();
-      stateDirty = this.runAccretion();
+      // Resolve sink-sink collisions BEFORE accretion so a sink that just
+      // got disrupted (mass=0) doesn't re-eat its own emitted stars.
+      const collisionDirty = this.runSinkCollisions();
+      stateDirty = this.runAccretion() || collisionDirty;
       this.updateSinkMirror();
       if (stateDirty) {
         this.device.queue.writeBuffer(this.posBuf, 0, this.hostPos);

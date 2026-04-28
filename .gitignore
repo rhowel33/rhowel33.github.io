@@ -14,10 +14,3 @@ vite.config.ts.timestamp-*
 # OS
 .DS_Store
 Thumbs.db
-
-# Jekyll (kept during transition period)
-_site/
-.sass-cache/
-.jekyll-cache/
-Gemfile.lock
-*.gem
