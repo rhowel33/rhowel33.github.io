@@ -4,11 +4,50 @@
   let { children } = $props();
 
   let isGalaxy = $derived($page.url.pathname.startsWith('/galaxy'));
+  let isHome   = $derived($page.url.pathname === '/');
+
+  // Home-only: hide the layout content for 3 s on first paint so the
+  // n-body simulation gets a clean stage to start, then fade in. Any
+  // click or keypress reveals immediately. Other routes render visibly.
+  let revealed = $state(false);
+  let timer    = null;
+
+  function revealNow() {
+    revealed = true;
+    cleanup();
+  }
+  function cleanup() {
+    if (timer) { clearTimeout(timer); timer = null; }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('click',   revealNow);
+      window.removeEventListener('keydown', revealNow);
+    }
+  }
+
+  $effect(() => {
+    cleanup();
+    if (!isHome) {
+      revealed = true;
+      return;
+    }
+    // Reduced-motion users skip the staged reveal too.
+    const reduced = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    if (reduced) {
+      revealed = true;
+      return;
+    }
+    revealed = false;
+    timer = setTimeout(revealNow, 3000);
+    window.addEventListener('click',   revealNow);
+    window.addEventListener('keydown', revealNow);
+    return cleanup;
+  });
 </script>
 
 <NBodyBackground interactive={isGalaxy} />
 
-<div class="site-wrapper">
+<div class="site-wrapper" class:home={isHome} class:revealed>
   <header class="site-header">
     <div class="header-inner">
       <a href="/" class="site-title">Reagan Howell</a>
@@ -82,6 +121,17 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    transition: opacity 1.2s ease-out;
+  }
+
+  /* Staged reveal on the home page only.
+     SSR/static HTML for `/` ships with .home but not .revealed, so the
+     viewer's first paint is the simulation alone — no flash of text.
+     The .revealed class is added 3 s later (or on first input) and the
+     transition above fades the chrome in. */
+  .site-wrapper.home:not(.revealed) {
+    opacity: 0;
+    pointer-events: none;
   }
 
   .main-content {
