@@ -30,6 +30,10 @@
     autoRotateSpeed: 0.05,
   });
 
+  // Live body counts pushed by the engine each tick; rendered in the
+  // bottom-right panel when the simulation is running.
+  let stats = $state({ stars: 0, sinks: 0 });
+
   let canvas  = $state(null);
   let cleanup = null;
   let active  = $state(false);
@@ -120,6 +124,7 @@
       cleanup = await startNBodyBackground({
         canvas,
         state:        camera,
+        stats,
         nBodies:      12000,
         stepsPerFrame: 1,
         galaxyType:   'spiral',
@@ -170,6 +175,10 @@
 
 {#if active && supported}
   <div class="nbody-controls" role="group" aria-label="Camera controls">
+    <div class="bodies" aria-label="Total live bodies">
+      <span class="bodies-num">{(stats.stars + stats.sinks).toLocaleString()}</span>
+      <span class="bodies-lbl">bodies</span>
+    </div>
     <div class="row">
       <span class="lbl">XY</span>
       <input
@@ -244,6 +253,27 @@
     color: #c8c8d4;
     user-select: none;
     pointer-events: auto;
+  }
+  .bodies {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    padding-bottom: 4px;
+    margin-bottom: 2px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    color: #e8e8f0;
+    font-variant-numeric: tabular-nums;
+  }
+  .bodies-num {
+    font-family: 'Chivo', 'Inter', system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .bodies-lbl {
+    font-size: 10px;
+    color: #7c7c92;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
   .row {
     display: flex;

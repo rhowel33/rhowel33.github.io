@@ -28,10 +28,21 @@ export interface BackgroundState {
   autoRotateSpeed: number;
 }
 
+/** Live counts updated each render tick. The engine writes into whatever
+ *  object the caller passes in, so a Svelte $state object plumbed through
+ *  here re-renders automatically when counts change. */
+export interface BackgroundStats {
+  stars: number;
+  sinks: number;
+}
+
 export interface BackgroundOptions {
   canvas:           HTMLCanvasElement;
   /** Live camera state shared with caller. If omitted, internal defaults. */
   state?:           BackgroundState;
+  /** Live body-count mirror. Engine writes `stars` / `sinks` each tick; if
+   *  the caller passes a Svelte $state object the UI can render it. */
+  stats?:           BackgroundStats;
   /** Particle count. ~12k is the sweet spot for a battery-friendly background. */
   nBodies?:         number;
   /** Auto-orbit speed in radians/second. */
@@ -104,12 +115,21 @@ export async function startNBodyBackground(
     seed:           cfg.seed,
   });
 
-  // Reserve one extra sink slot for the user-placed body. Parked far away with
-  // mass=0 until the user clicks; activated via sim.setUserBody().
-  const PARKED_USER_BODY: SinkInit = {
+  // Reserve extra sink slots beyond the IC's central sink:
+  //   slot 1                  → click-spawned user body
+  //   slot 2..MAX_SINKS - 1   → emergent sinks formed by spontaneous
+  //                              gravitational coalescence in dense
+  //                              star clumps (handled in Simulation).
+  // Renderer caps at 5 total. All extras start parked (mass=0).
+  const PARK_SINK: SinkInit = {
     x: 1e6, y: 1e6, z: 1e6, vx: 0, vy: 0, vz: 0, mass: 0,
   };
-  const allSinks: SinkInit[] = [...ic.sinks, PARKED_USER_BODY];
+  const MAX_SINKS = 5;
+  const extraSlots = Math.max(0, MAX_SINKS - ic.sinks.length);
+  const allSinks: SinkInit[] = [
+    ...ic.sinks,
+    ...Array.from({ length: extraSlots }, () => ({ ...PARK_SINK })),
+  ];
 
   // 2× central sink mass (or a sane default if the IC has no sinks at all).
   const centralSinkMass = ic.sinks.length > 0 ? ic.sinks[0].mass : 0.02;
@@ -386,6 +406,14 @@ export async function startNBodyBackground(
 
     void stepAsync();
 
+    if (opts.stats) {
+      const c = sim.countLiveBodies();
+      // Avoid writing identical values back into a reactive $state proxy
+      // every frame — only push when the count actually changed.
+      if (opts.stats.stars !== c.stars) opts.stats.stars = c.stars;
+      if (opts.stats.sinks !== c.sinks) opts.stats.sinks = c.sinks;
+    }
+
     // Eye on an orbit around the live target.
     const r    = state.distance;
     const cosE = Math.cos(state.elevation);
@@ -450,7 +478,10 @@ export async function startNBodyBackground(
           state.autoRotateSpeed = prevAutoRotate;
           placeHistory = [];
         }
-        sim.setUserBody(null);
+        // Park only the user-body slot; leave the central + any emergent
+        // coalesced sinks intact so the visitor can return to the same
+        // configuration when they navigate back.
+        sim.setSink(1, null);
       }
     },
   };

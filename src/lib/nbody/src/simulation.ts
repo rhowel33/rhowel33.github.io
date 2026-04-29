@@ -103,6 +103,13 @@ export class Simulation {
   // them. Stars are uniform-mass at setup, so a single scalar suffices.
   private starMass = 0;
 
+  // Wall-clock seconds. lastDisruptTime suppresses runCoalescence for a
+  // beat after a sink-disruption burst — otherwise the freshly-emitted
+  // stars (which sit clumped at the collision point for a few frames)
+  // would immediately re-collapse into a sink.
+  private lastDisruptTime  = -Infinity;
+  private lastCoalesceCheck = -Infinity;
+
   constructor(device: GPUDevice, nStars: number, nSinks: number, params: SimParams) {
     this.device        = device;
     this.nStars        = nStars;
@@ -341,6 +348,21 @@ export class Simulation {
   getSinkMass(slot: number): number {
     if (slot < 0 || slot >= this.nSinks) return 0;
     return this.sinks[slot]?.mass ?? 0;
+  }
+
+  // Live-body counts read from the latest readback. `stars` counts stars
+  // with mass > 0 (dead/accreted ones are zeroed); `sinks` counts active
+  // sink slots. Cheap (one pass through the host mirrors).
+  countLiveBodies(): { stars: number; sinks: number } {
+    let stars = 0;
+    for (let i = 0; i < this.nStars; i++) {
+      if (this.hostPos[4 * i + 3] > 0) stars++;
+    }
+    let sinks = 0;
+    for (let s = 0; s < this.nSinks; s++) {
+      if ((this.sinks[s]?.mass ?? 0) > 0) sinks++;
+    }
+    return { stars, sinks };
   }
 
   // Overwrite a sink slot's pos / vel / mass without re-uploading the entire
@@ -635,6 +657,9 @@ export class Simulation {
           this.parkSlot(ia);
           this.parkSlot(ib);
           ma = 0;
+          // Pin the cooldown so runCoalescence doesn't immediately re-bind
+          // the freshly-emitted clump back into a sink.
+          this.lastDisruptTime = performance.now() / 1000;
         }
 
         dirty = true;
@@ -642,6 +667,87 @@ export class Simulation {
     }
 
     return dirty;
+  }
+
+  // Detect dense star clumps and convert them into a new sink. Runs at most
+  // every COALESCE_INTERVAL_S seconds; suppressed for COALESCE_COOLDOWN_S
+  // after a sink-disruption burst. Only slots from `firstFreeSlot` upward
+  // are considered as targets — the central (slot 0) and user-body (slot 1)
+  // slots are user-managed and never reused for spontaneous coalescence.
+  private runCoalescence(firstFreeSlot: number): boolean {
+    if (this.starMass <= 0) return false;
+    if (this.nSinks <= firstFreeSlot) return false;
+
+    const now = performance.now() / 1000;
+    const COALESCE_COOLDOWN_S = 1.0;
+    const COALESCE_INTERVAL_S = 0.5;
+    if (now - this.lastDisruptTime  < COALESCE_COOLDOWN_S) return false;
+    if (now - this.lastCoalesceCheck < COALESCE_INTERVAL_S) return false;
+    this.lastCoalesceCheck = now;
+
+    // Find an open emergent-sink slot. If none, nothing to do.
+    let openSlot = -1;
+    for (let s = firstFreeSlot; s < this.nSinks; s++) {
+      if ((this.sinks[s]?.mass ?? 0) <= 0) { openSlot = s; break; }
+    }
+    if (openSlot < 0) return false;
+
+    const pos   = this.hostPos;
+    const vel   = this.hostVel;
+    const R     = 0.05;          // clump search radius
+    const R2    = R * R;
+    const COUNT = 80;            // stars-in-radius needed to bind a sink
+    const SAMPLES = 50;          // random probe count per check
+
+    for (let p = 0; p < SAMPLES; p++) {
+      const probe = Math.floor(Math.random() * this.nStars);
+      if (pos[4 * probe + 3] <= 0) continue;
+      const px = pos[4 * probe + 0];
+      const py = pos[4 * probe + 1];
+      const pz = pos[4 * probe + 2];
+
+      const cluster: number[] = [];
+      let mTot = 0;
+      let mx = 0, my = 0, mz = 0;
+      let mvx = 0, mvy = 0, mvz = 0;
+
+      for (let i = 0; i < this.nStars; i++) {
+        const mi = pos[4 * i + 3];
+        if (mi <= 0) continue;
+        const dx = pos[4 * i + 0] - px;
+        const dy = pos[4 * i + 1] - py;
+        const dz = pos[4 * i + 2] - pz;
+        if (dx * dx + dy * dy + dz * dz < R2) {
+          cluster.push(i);
+          mTot += mi;
+          mx  += mi * pos[4 * i + 0];
+          my  += mi * pos[4 * i + 1];
+          mz  += mi * pos[4 * i + 2];
+          mvx += mi * vel[4 * i + 0];
+          mvy += mi * vel[4 * i + 1];
+          mvz += mi * vel[4 * i + 2];
+        }
+      }
+
+      if (cluster.length < COUNT) continue;
+
+      // Bind: COM + COM-velocity, drain the cluster's stars.
+      const cx = mx / mTot, cy = my / mTot, cz = mz / mTot;
+      const cvx = mvx / mTot, cvy = mvy / mTot, cvz = mvz / mTot;
+      for (const i of cluster) pos[4 * i + 3] = 0;
+
+      const ia = this.nStars + openSlot;
+      pos[4 * ia + 0] = cx;
+      pos[4 * ia + 1] = cy;
+      pos[4 * ia + 2] = cz;
+      pos[4 * ia + 3] = mTot;
+      vel[4 * ia + 0] = cvx;
+      vel[4 * ia + 1] = cvy;
+      vel[4 * ia + 2] = cvz;
+      return true;
+    }
+
+    return false;
   }
 
   private parkSlot(globalIdx: number): void {
@@ -687,7 +793,11 @@ export class Simulation {
       // Resolve sink-sink collisions BEFORE accretion so a sink that just
       // got disrupted (mass=0) doesn't re-eat its own emitted stars.
       const collisionDirty = this.runSinkCollisions();
-      stateDirty = this.runAccretion() || collisionDirty;
+      const accretionDirty = this.runAccretion();
+      // Reserve slots 0 (central) and 1 (user body) for the click handler;
+      // emergent sinks bind into slot 2 and beyond.
+      const coalesceDirty  = this.runCoalescence(2);
+      stateDirty = collisionDirty || accretionDirty || coalesceDirty;
       this.updateSinkMirror();
       if (stateDirty) {
         this.device.queue.writeBuffer(this.posBuf, 0, this.hostPos);
