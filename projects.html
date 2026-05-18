@@ -1,0 +1,214 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+    <title>Reagan Howell - Projects</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+    <style type="text/css">
+        body {
+            background-color: #000000;
+            color: #00ff00;
+            font-family: "Courier New", Courier, monospace;
+            margin: 20px;
+        }
+        h1 {
+            color: #00ffff;
+            text-align: center;
+            font-size: 32px;
+        }
+        h2 {
+            color: #ffff00;
+            font-size: 24px;
+            border-bottom: 2px solid #00ff00;
+        }
+        h3 {
+            color: #ff00ff;
+            font-size: 18px;
+        }
+        a:link { color: #00ffff; }
+        a:visited { color: #ff00ff; }
+        a:hover { color: #ffff00; }
+        hr {
+            border: 1px solid #00ff00;
+        }
+        .center {
+            text-align: center;
+        }
+        img {
+            border: 2px solid #00ff00;
+            margin: 10px;
+        }
+        .project-box {
+            background-color: #111111;
+            border: 2px solid #00ff00;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+
+<h1>*** Personal Projects ***</h1>
+
+<center>
+<table border="1" cellpadding="10" bgcolor="#111111">
+    <tr>
+        <td><a href="index.html">HOME</a></td>
+        <td><a href="projects.html">PROJECTS</a></td>
+        <td><a href="resume/resume.pdf">RESUME</a></td>
+        <td><a href="https://github.com/rhowel33">GITHUB</a></td>
+    </tr>
+</table>
+</center>
+
+<hr>
+
+<div class="project-box">
+<h2>&gt;&gt; Audiobooks Home</h2>
+
+<p>
+Over the years my family has collected a lot of audiobooks.
+Now that we have moved out, it is hard to get access to books we own.
+After some searching I found a Github Repository, <b>Audiobookshelf</b>.
+It was a personal Audible, a <i>personaudible</i>, if you will.
+</p>
+
+<center>
+<img src="/assets/images/abs.png" alt="Audiobookshelf" width="200">
+</center>
+
+<p>
+I thought, I have an extra <font color="#ffff00">Raspberry Pi 4b</font> lying arround, I can set Audiobookshelf on it and be done in no time.
+</p>
+
+<p>
+I set it up in docker container running on my Raspberry Pi 4b.
+It worked well enough for one or two people listening to books at a time, but it became clear that it needed a bit more hardware power to get it to work for my family.
+I found a cheap old desktop computer that I could repurpose into a <font color="#00ffff">Ubuntu server</font> where I could host my Library.
+</p>
+
+<p>
+<b>Status:</b> <font color="#00ff00">[ OPERATIONAL ]</font>
+</p>
+</div>
+
+<hr>
+
+<div class="project-box">
+<h2>&gt;&gt; Homemade Chess Clock (hopefully cheaper)</h2>
+
+<p>
+Since early in the Covid-19 pandemic, I became enamored by the game of chess.
+Like many people, I made a <a href="https://www.chess.com/member/rhowel33">chess.com</a> account and started solving puzzles and playing games.
+Puzzle solving was more fun to me because given enough time, I should be able to find the right move.
+There was thrill when I would win chess games and utter disappointment when I lost.
+</p>
+
+<p>
+I started to improve and wanted to try my hand at chess in real life.
+I got a <b>US Chess Federation</b> membership and started playing in some small tournaments.
+Most small tournaments asked for a chess board and a chess clock to be brought a long to the events to keep costs down.
+Looking online at the chess clocks and seeing them go for around <font color="#ffff00">$60.00</font> each, I thought to myself how hard could it be to make my own.
+I found my old <font color="#00ffff">Arduino Uno</font> that I had used for one of my Electrical Engineering classes and started trying to build a clock.
+</p>
+
+<p>
+<b>Hardware Used:</b>
+</p>
+<ul>
+    <li>Arduino Uno</li>
+    <li>Breadboard</li>
+    <li>Small buttons</li>
+    <li>LCD screen (bought off of eBay)</li>
+    <li>Resistors</li>
+    <li>About a million jumper wires</li>
+</ul>
+
+<p>
+After finding all the hardware that I needed, I had to start coding.
+Though my coding expertise is in primarily <font color="#ff00ff">Python</font>, I quickly recalled the basics of <font color="#ff00ff">C++</font> and the little Arduino C that I had learned.
+With my C++ memory refreshed, I started the joy of troubleshooting with hardware sourced from not very reputable sellers.
+Troubleshooting my poor solder joints, less than neat code, or the hardware was a lot of work.
+When I finally had a half working clock, the LCD screen decided that it would only show the left half of the screen. <i>Unfortunate.</i>
+</p>
+
+<p>
+<b>Status:</b> <font color="#ffff00">[ ON HOLD - AWAITING NEW LCD SCREEN ]</font>
+</p>
+</div>
+
+<hr>
+
+<div class="project-box">
+<h2>&gt;&gt; N-Body Problem Research</h2>
+
+<p>
+Research on the N-body problem, specifically looking at different equilibrium configurations and their stabilities.
+</p>
+
+<p>
+<b>Configurations Studied:</b>
+</p>
+<ul>
+    <li>Figure 8 Configuration</li>
+    <li>Hiphop Orbit</li>
+    <li>Various 3-body problem scenarios</li>
+</ul>
+
+<center>
+<table>
+    <tr>
+        <td><img src="/assets/images/figure8.gif" alt="Figure 8 Orbit" width="300"></td>
+        <td><img src="/assets/images/hiphop.gif" alt="Hiphop Orbit" width="300"></td>
+    </tr>
+</table>
+</center>
+
+<p>
+<b>Status:</b> <font color="#00ff00">[ COMPLETED ]</font>
+</p>
+</div>
+
+<hr>
+
+<div class="project-box">
+<h2>&gt;&gt; Earthquake Epicenter Analysis</h2>
+
+<p>
+Worked on a team investigating the possible locations of earthquake epicenters based on records of earthquakes and tsunamis before the seismograph.
+</p>
+
+<p>
+Used wavelet transform of time series data representing river water quality data from across the United States.
+</p>
+
+<center>
+<img src="/assets/images/stream.png" alt="Wavelet Transform" width="400">
+</center>
+
+<p>
+<b>Status:</b> <font color="#00ff00">[ COMPLETED ]</font>
+</p>
+</div>
+
+<hr>
+
+<center>
+<p>
+<a href="index.html"><b>&lt;&lt;&lt; Back to Home &gt;&gt;&gt;</b></a>
+</p>
+</center>
+
+<hr>
+
+<center>
+<p>
+<font size="-1" color="#00ff00">
+Last Updated: November 2025<br>
+Best Viewed in Netscape Navigator 4.0 or Higher<br>
+This page is optimized for 800x600 resolution
+</font>
+</p>
+</center>
+
+</body>
+</html>
